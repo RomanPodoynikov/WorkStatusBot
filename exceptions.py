@@ -1,6 +1,3 @@
-import telegram
-
-
 class StatusCodeHTTPIsIncorrect(Exception):
     """
     Запрос к эндпоинту API-сервиса не выполнен.
@@ -18,11 +15,5 @@ class StatusUnknown(Exception):
 
 class StatusInDictIsNotAvailable(Exception):
     """В ответе в словаре отсутствует статус домашнего задания."""
-
-    pass
-
-
-class MessageNotSent(telegram.error.TelegramError):
-    """Не удается отправить сообщение."""
 
     pass
