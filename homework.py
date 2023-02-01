@@ -31,7 +31,7 @@ HOMEWORK_VERDICTS = {
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 handler = RotatingFileHandler('program.log',
-                              maxBytes=50000000,
+                              maxBytes=100000,
                               backupCount=5)
 logger.addHandler(handler)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
