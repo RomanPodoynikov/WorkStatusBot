@@ -31,9 +31,11 @@ HOMEWORK_VERDICTS = {
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 handler = RotatingFileHandler('program.log',
-                              maxBytes=100000,
+                              maxBytes=1000000,
                               backupCount=5)
+handler_2 = logging.StreamHandler(stdout)
 logger.addHandler(handler)
+logger.addHandler(handler_2)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 
@@ -46,13 +48,10 @@ def check_tokens():
         'TELEGRAM_TOKEN': TELEGRAM_TOKEN,
         'TELEGRAM_CHAT_ID': TELEGRAM_CHAT_ID,
     }
-    empty_tokens = []
-    for key, value in tokens.items():
-        if value is None:
-            empty_tokens.append(key)
+    empty_tokens = [key for key, value in tokens.items() if value is None]
     if empty_tokens != []:
-        for i in empty_tokens:
-            logger.critical(f'Отсутствует переменная окружения: {i}.')
+        for key in empty_tokens:
+            logger.critical(f'Отсутствует переменная окружения: {key}.')
         exit('Программа принудительно остановлена.')
     logger.debug('Переменные окружения доступны.')
 
@@ -77,11 +76,11 @@ def get_api_answer(timestamp):
                                 params=params)
     except requests.RequestException as error:
         raise ConnectionError(f'Запрос к {ENDPOINT} не выполнен - {error}')
-    if response.status_code == HTTPStatus.OK:
-        logger.debug(f'Запрос к {ENDPOINT} выполнен успешно.')
-        return response.json()
-    raise StatusCodeHTTPIsIncorrect('Код состояния HTTP отличен от 200 ОК. '
-                                    f'Код состояния - {response.status_code}.')
+    if response.status_code != HTTPStatus.OK:
+        raise StatusCodeHTTPIsIncorrect('Код состояния HTTP отличен от 200. '
+                                        f'Код - {response.status_code}.')
+    logger.debug(f'Запрос к {ENDPOINT} выполнен успешно.')
+    return response.json()
 
 
 def check_response(response):
@@ -106,11 +105,11 @@ def parse_status(homework):
     status = homework.get('status')
     if homework_name is None:
         raise StatusInDictIsNotAvailable('Отсутствует статус домашней работы.')
-    if status in HOMEWORK_VERDICTS:
-        verdict = HOMEWORK_VERDICTS.get(status)
-        logger.info(f'Извлечен статус "{status}" домашней работы.')
-        return f'Изменился статус проверки работы "{homework_name}". {verdict}'
-    raise StatusUnknown('Неизвестный статус домашней работы.')
+    if status not in HOMEWORK_VERDICTS:
+        raise StatusUnknown('Неизвестный статус домашней работы.')
+    verdict = HOMEWORK_VERDICTS.get(status)
+    logger.info(f'Извлечен статус "{status}" домашней работы.')
+    return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
 def main():
@@ -126,33 +125,31 @@ def main():
             response = get_api_answer(timestamp)
             check_response(response)
             homeworks = response.get('homeworks')
-            if homeworks:
-                message = parse_status(homeworks[0])
-                logger.debug(f'Сообщение "{message}" получено.')
-                current_report = dict(name=homeworks[0].get('homework_name'),
-                                      output=message)
-            else:
+            if not homeworks:
                 message = 'Новые статусы работы отсутствуют.'
                 logger.debug(f'{message}')
                 current_report['output'] = message
+                if current_report != prev_report:
+                    send_message(bot, message)
+                    prev_report = current_report.copy()
+                continue
+            message = parse_status(homeworks[0])
+            logger.debug(f'Сообщение "{message}" получено.')
+            current_report = dict(name=homeworks[0], output=message)
+            if current_report != prev_report:
+                send_message(bot, message)
+                prev_report = current_report.copy()
         except Exception as error:
             message = f'Сбой в работе программы: {error}.'
             logger.error(f'{message}')
             current_report['output'] = message
-            print(current_report)
-        finally:
             if current_report != prev_report:
                 send_message(bot, message)
                 prev_report = current_report.copy()
+        finally:
             logger.info('Запущен период ожидания.')
             time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        handlers=[logging.StreamHandler(stdout)]
-    )
-
     main()
