@@ -10,7 +10,7 @@ import telegram
 from dotenv import load_dotenv
 
 from exceptions import (StatusCodeHTTPIsIncorrect, StatusUnknown,
-                        StatusInDictIsNotAvailable)
+                        NameInDictIsNotAvailable)
 
 load_dotenv()
 
@@ -49,9 +49,8 @@ def check_tokens():
         'TELEGRAM_CHAT_ID': TELEGRAM_CHAT_ID,
     }
     empty_tokens = [key for key, value in tokens.items() if value is None]
-    if empty_tokens != []:
-        for key in empty_tokens:
-            logger.critical(f'Отсутствует переменная окружения: {key}.')
+    if empty_tokens:
+        logger.critical(f'Отсутствие переменной(ых) окружения: {empty_tokens}')
         exit('Программа принудительно остановлена.')
     logger.debug('Переменные окружения доступны.')
 
@@ -104,7 +103,7 @@ def parse_status(homework):
     homework_name = homework.get('homework_name')
     status = homework.get('status')
     if homework_name is None:
-        raise StatusInDictIsNotAvailable('Отсутствует статус домашней работы.')
+        raise NameInDictIsNotAvailable('Отсутствует имя домашней работы.')
     if status not in HOMEWORK_VERDICTS:
         raise StatusUnknown('Неизвестный статус домашней работы.')
     verdict = HOMEWORK_VERDICTS.get(status)
@@ -129,24 +128,25 @@ def main():
                 message = 'Новые статусы работы отсутствуют.'
                 logger.debug(f'{message}')
                 current_report['output'] = message
-                if current_report != prev_report:
-                    send_message(bot, message)
-                    prev_report = current_report.copy()
                 continue
             message = parse_status(homeworks[0])
-            logger.debug(f'Сообщение "{message}" получено.')
+            logger.debug(f'Обновился статус: "{message}"')
             current_report = dict(name=homeworks[0], output=message)
             if current_report != prev_report:
                 send_message(bot, message)
                 prev_report = current_report.copy()
         except Exception as error:
-            message = f'Сбой в работе программы: {error}.'
+            name = homeworks[0].get('homework_name')
+            message = f'Сбой в работе программы {name}: "{error}"'
             logger.error(f'{message}')
             current_report['output'] = message
             if current_report != prev_report:
                 send_message(bot, message)
                 prev_report = current_report.copy()
         finally:
+            timestamp = response.get('current_date')
+            if timestamp is None:
+                timestamp = int(time.time())
             logger.info('Запущен период ожидания.')
             time.sleep(RETRY_PERIOD)
 

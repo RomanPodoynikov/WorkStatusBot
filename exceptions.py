@@ -13,7 +13,7 @@ class StatusUnknown(Exception):
     pass
 
 
-class StatusInDictIsNotAvailable(Exception):
-    """В ответе в словаре отсутствует статус домашнего задания."""
+class NameInDictIsNotAvailable(Exception):
+    """В ответе в словаре отсутствует имя домашнего задания."""
 
     pass
