@@ -105,7 +105,7 @@ def parse_status(homework):
     if homework_name is None:
         raise NameInDictIsNotAvailable('Отсутствует имя домашней работы.')
     if status not in HOMEWORK_VERDICTS:
-        raise StatusUnknown('Неизвестный статус домашней работы.')
+        raise StatusUnknown(f'Неизвестный статус домашней работы: "{status}".')
     verdict = HOMEWORK_VERDICTS.get(status)
     logger.info(f'Извлечен статус "{status}" домашней работы.')
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
@@ -135,6 +135,7 @@ def main():
             if current_report != prev_report:
                 send_message(bot, message)
                 prev_report = current_report.copy()
+            timestamp = response.get('current_date') or int(time.time())
         except Exception as error:
             name = homeworks[0].get('homework_name')
             message = f'Сбой в работе программы {name}: "{error}"'
@@ -144,9 +145,6 @@ def main():
                 send_message(bot, message)
                 prev_report = current_report.copy()
         finally:
-            timestamp = response.get('current_date')
-            if timestamp is None:
-                timestamp = int(time.time())
             logger.info('Запущен период ожидания.')
             time.sleep(RETRY_PERIOD)
 
